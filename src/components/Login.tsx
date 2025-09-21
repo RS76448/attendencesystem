@@ -51,9 +51,9 @@ export default function Login() {
   };
 
   const demoAccounts = [
-    { role: 'Student', email: 'student@demo.com', password: 'demo123' },
-    { role: 'Faculty', email: 'faculty@demo.com', password: 'demo123' },
-    { role: 'Admin', email: 'admin@demo.com', password: 'demo123' }
+    // { role: 'Student', email: 'student@demo.com', password: 'demo123' },
+    // { role: 'Faculty', email: 'faculty@demo.com', password: 'demo123' },
+    // { role: 'Admin', email: 'admin@demo.com', password: 'demo123' }
   ];
 
   return (
