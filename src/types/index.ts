@@ -27,14 +27,17 @@ export interface AttendanceRequest {
   prn: string;
   course: string;
   semester: string;
+  // Destination faculty selected by student
   facultyId: string;
   facultyName: string;
-  classDetails: {
+  // Support bundling multiple classes in a single request
+  classDetails: Array<{
     subject: string;
-    date: string;
+    date: string; // ISO date string (YYYY-MM-DD)
     time: string;
-    day: string;
-  };
+    day: string; // 0-6 or name
+    timetableEntryId?: string; // optional reference to timetable entry
+  }>;
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: Date;

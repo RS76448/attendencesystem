@@ -328,19 +328,31 @@ export default function FacultyDashboard() {
                       <p className="font-medium">{request.course}</p>
                       <p className="text-sm text-gray-500">Semester {request.semester}</p>
                     </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Subject</p>
-                      <p className="font-medium">{request.classDetails.subject}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Date & Time</p>
-                      <p className="font-medium">
-                        {new Date(request.classDetails.date).toLocaleDateString()}
-                      </p>
-                      <p className="text-sm text-gray-500">{request.classDetails.time}</p>
-                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-md divide-y mb-4">
+                    {(
+                      Array.isArray((request as any).classDetails)
+                        ? (request as any).classDetails
+                        : [(request as any).classDetails]
+                    ).map((cd: any, idx: number) => (
+                      <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3">
+                        <div>
+                          <p className="text-sm text-gray-500">Subject</p>
+                          <p className="font-medium">{cd.subject}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Date & Time</p>
+                          <p className="font-medium">
+                            {cd.date ? new Date(cd.date).toLocaleDateString() : '-'}{cd.time ? ` - ${cd.time}` : ''}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Faculty</p>
+                          <p className="font-medium">{request.facultyName}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                   
                   <div>

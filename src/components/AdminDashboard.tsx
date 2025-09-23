@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { setDoc } from 'firebase/firestore';
+import { setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { TimeTableEntry, AttendanceRequest, User, Course } from '../types';
 import { Upload, Users, Calendar, BookOpen, Plus, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
@@ -17,8 +17,14 @@ export default function AdminDashboard() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
+  // Filters for multiple timetables
+  const [filterCourse, setFilterCourse] = useState<string>('');
+  const [filterSemester, setFilterSemester] = useState<string>('');
+
   // Timetable form state
   const [showTimetableForm, setShowTimetableForm] = useState(false);
+  const [showCsvUploader, setShowCsvUploader] = useState(false);
+  const [csvParsing, setCsvParsing] = useState(false);
   const [timetableData, setTimetableData] = useState({
     course: '',
     semester: '',
@@ -126,6 +132,54 @@ export default function AdminDashboard() {
       console.error('Error adding timetable entry:', error);
       setError('Failed to add timetable entry.');
     }
+  };
+
+  const handleCsvUpload = async (file: File) => {
+    setError('');
+    setSuccess('');
+    setCsvParsing(true);
+    try {
+      const text = await file.text();
+      // Expected headers: course,semester,day,time,subject,facultyId,facultyName
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length < 2) {
+        throw new Error('CSV has no data rows.');
+      }
+      const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const required = ['course','semester','day','time','subject','facultyid','facultyname'];
+      const missing = required.filter(r => !header.includes(r));
+      if (missing.length) {
+        throw new Error(`Missing columns: ${missing.join(', ')}`);
+      }
+      const idx = (name: string) => header.indexOf(name);
+      const batchEntries: any[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (cols.length !== header.length) continue;
+        const entry = {
+          course: cols[idx('course')].trim(),
+          semester: cols[idx('semester')].trim(),
+          day: cols[idx('day')].trim(),
+          time: cols[idx('time')].trim(),
+          subject: cols[idx('subject')].trim(),
+          facultyId: cols[idx('facultyid')].trim(),
+          facultyName: cols[idx('facultyname')].trim(),
+        };
+        if (!entry.course || !entry.semester || !entry.subject) continue;
+        batchEntries.push(entry);
+      }
+      for (const e of batchEntries) {
+        await addDoc(collection(db, 'timetables'), e);
+      }
+      setSuccess(`Uploaded ${batchEntries.length} timetable entries.`);
+      setShowCsvUploader(false);
+      await loadTimetables();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (e: any) {
+      console.error('CSV upload error:', e);
+      setError(e.message || 'Failed to process CSV.');
+    }
+    setCsvParsing(false);
   };
 
   const deleteTimetableEntry = async (id: string) => {
@@ -361,13 +415,30 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-medium text-gray-900">Timetable Management</h3>
-                  <button
-                    onClick={() => setShowTimetableForm(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors flex items-center space-x-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add Entry</span>
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <label className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors flex items-center space-x-2 cursor-pointer">
+                      <Upload className="w-4 h-4" />
+                      <span>{csvParsing ? 'Uploading...' : 'Upload CSV'}</span>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        className="hidden"
+                        disabled={csvParsing}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleCsvUpload(f);
+                          e.currentTarget.value = '';
+                        }}
+                      />
+                    </label>
+                    <button
+                      onClick={() => setShowTimetableForm(true)}
+                      className="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-md transition-colors flex items-center space-x-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>New Entry</span>
+                    </button>
+                  </div>
                 </div>
 
                 {showTimetableForm && (
@@ -448,6 +519,28 @@ export default function AdminDashboard() {
                 )}
 
                 <div className="overflow-x-auto">
+                  <div className="mb-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <select
+                      value={filterCourse}
+                      onChange={(e) => setFilterCourse(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">All Courses</option>
+                      {Array.from(new Set(timetables.map(t => t.course))).map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={filterSemester}
+                      onChange={(e) => setFilterSemester(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">All Semesters</option>
+                      {Array.from(new Set(timetables.map(t => t.semester))).map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -461,7 +554,10 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {timetables.map(entry => (
+                      {timetables
+                        .filter(t => (filterCourse ? t.course === filterCourse : true))
+                        .filter(t => (filterSemester ? t.semester === filterSemester : true))
+                        .map(entry => (
                         <tr key={entry.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{entry.course}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.semester}</td>
@@ -597,6 +693,7 @@ export default function AdminDashboard() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -617,6 +714,49 @@ export default function AdminDashboard() {
                             {user.role === 'student' && `${user.course} - Sem ${user.semester} - ${user.prn}`}
                             {user.role === 'faculty' && `Faculty ID: ${user.facultyId}`}
                             {user.role === 'admin' && 'Administrator'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {user.role === 'faculty' && (
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  className="text-blue-600 hover:text-blue-800"
+                                  onClick={async () => {
+                                    const newName = prompt('Update display name', user.displayName || '');
+                                    if (newName === null) return;
+                                    const newFacultyId = prompt('Update Faculty ID', user.facultyId || '');
+                                    if (newName !== null) {
+                                      try {
+                                        await updateDoc(doc(db, 'users', user.uid), {
+                                          displayName: newName,
+                                          facultyId: newFacultyId || ''
+                                        });
+                                        setSuccess('Faculty updated');
+                                        loadUsers();
+                                        setTimeout(() => setSuccess(''), 3000);
+                                      } catch (e) {
+                                        console.error(e);
+                                        setError('Failed to update faculty');
+                                      }
+                                    }
+                                  }}
+                                >Edit</button>
+                                <button
+                                  className="text-red-600 hover:text-red-800"
+                                  onClick={async () => {
+                                    if (!confirm(`Delete user ${user.displayName}? This only removes the profile document.`)) return;
+                                    try {
+                                      await deleteDoc(doc(db, 'users', user.uid));
+                                      setSuccess('User profile deleted');
+                                      loadUsers();
+                                      setTimeout(() => setSuccess(''), 3000);
+                                    } catch (e) {
+                                      console.error(e);
+                                      setError('Failed to delete user profile');
+                                    }
+                                  }}
+                                >Delete</button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -704,8 +844,7 @@ export default function AdminDashboard() {
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Course</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Classes</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Faculty</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submitted</th>
@@ -724,9 +863,19 @@ export default function AdminDashboard() {
                               <div className="text-sm text-gray-900">{request.course}</div>
                               <div className="text-sm text-gray-500">Sem {request.semester}</div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{request.classDetails.subject}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(request.classDetails.date).toLocaleDateString()}
+                              <div className="space-y-1">
+                                {(
+                                  Array.isArray((request as any).classDetails)
+                                    ? (request as any).classDetails
+                                    : [(request as any).classDetails]
+                                ).map((cd: any, idx: number) => (
+                                  <div key={idx}>
+                                    <span className="font-medium">{cd.subject}</span>
+                                    <span className="text-gray-500"> • {cd.date ? new Date(cd.date).toLocaleDateString() : '-'}{cd.time ? ` - ${cd.time}` : ''}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{request.facultyName}</td>
                             <td className="px-6 py-4 whitespace-nowrap">

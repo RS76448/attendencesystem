@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc, orderBy, limit, startAfter } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { TimeTableEntry, AttendanceRequest } from '../types';
+import { TimeTableEntry, AttendanceRequest, User as AppUser } from '../types';
 import { Calendar, Clock, Book, User, AlertCircle, CheckCircle, XCircle, Plus } from 'lucide-react';
 import Layout from './Layout';
 
@@ -13,9 +13,12 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<TimeTableEntry | null>(null);
+  // Multi-select classes with per-class date
+  const [selectedClasses, setSelectedClasses] = useState<Record<string, { selected: boolean; date: string }>>({});
   const [reason, setReason] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
+  // Faculty selection
+  const [facultyList, setFacultyList] = useState<AppUser[]>([]);
+  const [selectedFacultyId, setSelectedFacultyId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -23,6 +26,7 @@ export default function StudentDashboard() {
     if (currentUser) {
       loadTimetable();
       loadRequests();
+      loadFaculty();
     }
   }, [currentUser]);
 
@@ -51,7 +55,7 @@ export default function StudentDashboard() {
       } else {
         setError('');
       }
-      
+      console.log(timetableData);
       setTimetable(timetableData);
     } catch (error) {
       console.error('Error loading timetable:', error);
@@ -82,55 +86,90 @@ export default function StudentDashboard() {
     }
   };
 
+  const loadFaculty = async () => {
+    try {
+      const q = query(collection(db, 'users'), where('role', '==', 'faculty'));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(d => ({ uid: d.id, ...(d.data() as any) })) as AppUser[];
+      setFacultyList(data);
+    } catch (e) {
+      console.error('Error loading faculty:', e);
+    }
+  };
+
   const checkDuplicateRequest = (classEntry: TimeTableEntry, date: string) => {
-    return requests.some(request => 
-      request.classDetails.subject === classEntry.subject &&
-      request.classDetails.date === date &&
-      request.classDetails.time === classEntry.time &&
-      request.status !== 'rejected'
-    );
+    return requests.some(request => {
+      const details = Array.isArray((request as any).classDetails)
+        ? (request as any).classDetails
+        : [(request as any).classDetails];
+      return details.some((d: any) =>
+        d?.subject === classEntry.subject && d?.date === date && d?.time === classEntry.time && request.status !== 'rejected'
+      );
+    });
   };
 
   const submitRequest = async () => {
-    if (!selectedClass || !selectedDate || !reason.trim()) {
-      setError('Please fill in all required fields.');
+    // Validate selections
+    const selectedIds = Object.keys(selectedClasses).filter(id => selectedClasses[id].selected);
+    if (selectedIds.length === 0 || !reason.trim() || !selectedFacultyId) {
+      setError('Select at least one class, choose a faculty, and enter a reason.');
       return;
     }
 
-    if (checkDuplicateRequest(selectedClass, selectedDate)) {
-      setError('You have already submitted a request for this class on the selected date.');
-      return;
+    // Validate dates
+    for (const id of selectedIds) {
+      const date = selectedClasses[id].date;
+      if (!date) {
+        setError('Please select a date for each selected class.');
+        return;
+      }
+    }
+
+    // Duplicate check
+    for (const id of selectedIds) {
+      const entry = timetable.find(t => t.id === id);
+      if (entry && checkDuplicateRequest(entry, selectedClasses[id].date)) {
+        setError(`Duplicate request found for ${entry.subject} on ${selectedClasses[id].date}.`);
+        return;
+      }
     }
 
     setSubmitting(true);
     setError('');
 
     try {
+      const faculty = facultyList.find(f => (f.facultyId || f.uid) === selectedFacultyId || f.uid === selectedFacultyId);
+      const classDetails = selectedIds.map(id => {
+        const entry = timetable.find(t => t.id === id)!;
+        return {
+          subject: entry.subject,
+          date: selectedClasses[id].date,
+          time: entry.time,
+          day: entry.day,
+          timetableEntryId: entry.id,
+        };
+      });
+
       const requestData: Omit<AttendanceRequest, 'id'> = {
         studentId: currentUser!.uid,
         studentName: currentUser!.displayName,
         prn: currentUser!.prn || '',
         course: currentUser!.course || '',
         semester: currentUser!.semester || '',
-        facultyId: selectedClass.facultyId,
-        facultyName: selectedClass.facultyName,
-        classDetails: {
-          subject: selectedClass.subject,
-          date: selectedDate,
-          time: selectedClass.time,
-          day: selectedClass.day,
-        },
+        facultyId: faculty?.facultyId || faculty?.uid || selectedFacultyId,
+        facultyName: faculty?.displayName || 'Selected Faculty',
+        classDetails,
         reason: reason.trim(),
         status: 'pending',
         submittedAt: new Date(),
-      };
+      } as any;
 
       await addDoc(collection(db, 'attendanceRequests'), requestData);
       setSuccess('Request submitted successfully!');
       setShowRequestForm(false);
-      setSelectedClass(null);
+      setSelectedClasses({});
       setReason('');
-      setSelectedDate('');
+      setSelectedFacultyId('');
       loadRequests();
       
       setTimeout(() => setSuccess(''), 3000);
@@ -229,37 +268,70 @@ export default function StudentDashboard() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Submit Attendance Request</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Class
-                </label>
-                <select
-                  value={selectedClass?.id || ''}
-                  onChange={(e) => {
-                    const classEntry = timetable.find(t => t.id === e.target.value);
-                    setSelectedClass(classEntry || null);
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select a class</option>
-                  {timetable.map(entry => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.subject} - {getDayName(entry.day)} {entry.time} ({entry.facultyName})
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Classes</label>
+                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-md divide-y">
+                  {timetable.map(entry => {
+                    const isSelected = !!selectedClasses[entry.id]?.selected;
+                    const dateVal = selectedClasses[entry.id]?.date || '';
+                    return (
+                      <div key={entry.id} className="p-3">
+                        <label className="flex items-start space-x-3">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              setSelectedClasses(prev => ({
+                                ...prev,
+                                [entry.id]: { selected: e.target.checked, date: prev[entry.id]?.date || '' }
+                              }));
+                            }}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <div className="text-sm">
+                                <span className="font-medium">{entry.subject}</span>
+                                <span className="text-gray-500"> • {getDayName(entry.day)} {entry.time}</span>
+                                <span className="text-gray-500"> • {entry.facultyName}</span>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <div className="mt-2">
+                                <label className="block text-xs text-gray-600 mb-1">Date of Absence</label>
+                                <input
+                                  type="date"
+                                  value={dateVal}
+                                  onChange={(e) => setSelectedClasses(prev => ({
+                                    ...prev,
+                                    [entry.id]: { selected: true, date: e.target.value }
+                                  }))}
+                                  max={new Date().toISOString().split('T')[0]}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Absence
-                </label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]}
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Faculty/Approver</label>
+                <select
+                  value={selectedFacultyId}
+                  onChange={(e) => setSelectedFacultyId(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                >
+                  <option value="">Choose a faculty</option>
+                  {facultyList.map(f => (
+                    <option key={f.uid} value={f.facultyId || f.uid}>
+                      {f.displayName}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -383,20 +455,31 @@ export default function StudentDashboard() {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                    <div>
-                      <p className="text-sm text-gray-500">Subject</p>
-                      <p className="font-medium">{request.classDetails.subject}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Date & Time</p>
-                      <p className="font-medium">
-                        {new Date(request.classDetails.date).toLocaleDateString()} - {request.classDetails.time}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Faculty</p>
-                      <p className="font-medium">{request.facultyName}</p>
+                  <div className="mb-3">
+                    <p className="text-sm text-gray-500 mb-1">Classes</p>
+                    <div className="bg-gray-50 rounded-md divide-y">
+                      {(
+                        Array.isArray((request as any).classDetails)
+                          ? (request as any).classDetails
+                          : [(request as any).classDetails]
+                      ).map((cd: any, idx: number) => (
+                        <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3">
+                          <div>
+                            <p className="text-sm text-gray-500">Subject</p>
+                            <p className="font-medium">{cd.subject}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Date & Time</p>
+                            <p className="font-medium">
+                              {cd.date ? new Date(cd.date).toLocaleDateString() : '-'}{cd.time ? ` - ${cd.time}` : ''}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Faculty</p>
+                            <p className="font-medium">{request.facultyName}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                   
