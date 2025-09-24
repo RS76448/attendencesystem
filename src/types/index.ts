@@ -13,7 +13,8 @@ export interface TimeTableEntry {
   id: string;
   course: string;
   semester: string;
-  day: string;
+  day: string; // Day of week (0-6)
+  date?: string; // Actual date (YYYY-MM-DD)
   time: string;
   subject: string;
   facultyId: string;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { setDoc, updateDoc } from 'firebase/firestore';
@@ -23,12 +23,12 @@ export default function AdminDashboard() {
 
   // Timetable form state
   const [showTimetableForm, setShowTimetableForm] = useState(false);
-  const [showCsvUploader, setShowCsvUploader] = useState(false);
   const [csvParsing, setCsvParsing] = useState(false);
   const [timetableData, setTimetableData] = useState({
     course: '',
     semester: '',
-    day: '',
+    day: '', // Will store day number (0-6)
+    date: '', // Will store the actual date
     time: '',
     subject: '',
     facultyId: '',
@@ -121,6 +121,7 @@ export default function AdminDashboard() {
         course: '',
         semester: '',
         day: '',
+        date: '',
         time: '',
         subject: '',
         facultyId: '',
@@ -140,13 +141,13 @@ export default function AdminDashboard() {
     setCsvParsing(true);
     try {
       const text = await file.text();
-      // Expected headers: course,semester,day,time,subject,facultyId,facultyName
+      // Expected headers: course,semester,date,time,subject,facultyId,facultyName
       const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
       if (lines.length < 2) {
         throw new Error('CSV has no data rows.');
       }
       const header = lines[0].split(',').map(h => h.trim().toLowerCase());
-      const required = ['course','semester','day','time','subject','facultyid','facultyname'];
+      const required = ['course','semester','date','time','subject','facultyid','facultyname'];
       const missing = required.filter(r => !header.includes(r));
       if (missing.length) {
         throw new Error(`Missing columns: ${missing.join(', ')}`);
@@ -156,10 +157,13 @@ export default function AdminDashboard() {
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',');
         if (cols.length !== header.length) continue;
+        const dateValue = cols[idx('date')].trim();
+        const dayOfWeek = dateValue ? new Date(dateValue).getDay().toString() : '';
         const entry = {
           course: cols[idx('course')].trim(),
           semester: cols[idx('semester')].trim(),
-          day: cols[idx('day')].trim(),
+          day: dayOfWeek,
+          date: dateValue,
           time: cols[idx('time')].trim(),
           subject: cols[idx('subject')].trim(),
           facultyId: cols[idx('facultyid')].trim(),
@@ -172,7 +176,6 @@ export default function AdminDashboard() {
         await addDoc(collection(db, 'timetables'), e);
       }
       setSuccess(`Uploaded ${batchEntries.length} timetable entries.`);
-      setShowCsvUploader(false);
       await loadTimetables();
       setTimeout(() => setSuccess(''), 3000);
     } catch (e: any) {
@@ -444,33 +447,47 @@ export default function AdminDashboard() {
                 {showTimetableForm && (
                   <div className="bg-gray-50 rounded-lg p-4 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <input
-                        type="text"
-                        placeholder="Course"
+                      <select
                         value={timetableData.course}
                         onChange={(e) => setTimetableData({...timetableData, course: e.target.value})}
                         className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Semester"
+                      >
+                        <option value="">Select Course</option>
+                        {courses.map(course => (
+                          <option key={course.id} value={course.name}>{course.name}</option>
+                        ))}
+                      </select>
+                      <select
                         value={timetableData.semester}
                         onChange={(e) => setTimetableData({...timetableData, semester: e.target.value})}
                         className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <select
-                        value={timetableData.day}
-                        onChange={(e) => setTimetableData({...timetableData, day: e.target.value})}
-                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="">Select Day</option>
-                        <option value="1">Monday</option>
-                        <option value="2">Tuesday</option>
-                        <option value="3">Wednesday</option>
-                        <option value="4">Thursday</option>
-                        <option value="5">Friday</option>
-                        <option value="6">Saturday</option>
+                        <option value="">Select Semester</option>
+                        {['1', '2', '3', '4', '5', '6', '7', '8'].map(sem => (
+                          <option key={sem} value={sem}>Semester {sem}</option>
+                        ))}
                       </select>
+                      <input
+                        type="date"
+                        value={timetableData.date}
+                        onChange={(e) => {
+                          const selectedDate = e.target.value;
+                          const dayOfWeek = selectedDate ? new Date(selectedDate).getDay() : '';
+                          setTimetableData({
+                            ...timetableData, 
+                            date: selectedDate,
+                            day: dayOfWeek.toString()
+                          });
+                        }}
+                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Day Name (auto-filled)"
+                        value={timetableData.day ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][parseInt(timetableData.day)] || '' : ''}
+                        readOnly
+                        className="px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                      />
                       <input
                         type="time"
                         value={timetableData.time}
@@ -486,19 +503,31 @@ export default function AdminDashboard() {
                         onChange={(e) => setTimetableData({...timetableData, subject: e.target.value})}
                         className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <input
-                        type="text"
-                        placeholder="Faculty ID"
+                      <select
                         value={timetableData.facultyId}
-                        onChange={(e) => setTimetableData({...timetableData, facultyId: e.target.value})}
+                        onChange={(e) => {
+                          const selectedFaculty = users.find(u => (u.facultyId || u.uid) === e.target.value);
+                          setTimetableData({
+                            ...timetableData, 
+                            facultyId: e.target.value,
+                            facultyName: selectedFaculty?.displayName || ''
+                          });
+                        }}
                         className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      >
+                        <option value="">Select Faculty</option>
+                        {users.filter(u => u.role === 'faculty').map(faculty => (
+                          <option key={faculty.uid} value={faculty.facultyId || faculty.uid}>
+                            {faculty.displayName} ({faculty.facultyId || faculty.uid})
+                          </option>
+                        ))}
+                      </select>
                       <input
                         type="text"
-                        placeholder="Faculty Name"
+                        placeholder="Faculty Name (auto-filled)"
                         value={timetableData.facultyName}
-                        onChange={(e) => setTimetableData({...timetableData, facultyName: e.target.value})}
-                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        readOnly
+                        className="px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
                       />
                     </div>
                     <div className="flex space-x-2">
@@ -546,7 +575,7 @@ export default function AdminDashboard() {
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Course</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Semester</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Day</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Day</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Faculty</th>
@@ -562,7 +591,14 @@ export default function AdminDashboard() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{entry.course}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.semester}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][parseInt(entry.day)] || entry.day}
+                            <div>
+                              <div className="font-medium">
+                                {(entry as any).date ? new Date((entry as any).date).toLocaleDateString() : 'No date'}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][parseInt(entry.day)] || entry.day}
+                              </div>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.time}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{entry.subject}</td>
@@ -789,6 +825,41 @@ export default function AdminDashboard() {
                       onChange={(e) => setCourseData({...courseData, name: e.target.value})}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Semesters (Multi-select)
+                      </label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {['1', '2', '3', '4', '5', '6', '7', '8'].map(sem => (
+                          <label key={sem} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              checked={courseData.semesters.includes(sem)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setCourseData({
+                                    ...courseData,
+                                    semesters: [...courseData.semesters, sem]
+                                  });
+                                } else {
+                                  setCourseData({
+                                    ...courseData,
+                                    semesters: courseData.semesters.filter(s => s !== sem)
+                                  });
+                                }
+                              }}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700">Sem {sem}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Selected: {courseData.semesters.length > 0 ? courseData.semesters.join(', ') : 'None'}
+                      </p>
+                    </div>
+                    
                     <div className="flex space-x-2">
                       <button
                         onClick={addCourse}

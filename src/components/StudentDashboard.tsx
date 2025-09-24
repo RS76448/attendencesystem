@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { collection, query, where, getDocs, addDoc, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { TimeTableEntry, AttendanceRequest, User as AppUser } from '../types';
@@ -13,8 +13,8 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
-  // Multi-select classes with per-class date
-  const [selectedClasses, setSelectedClasses] = useState<Record<string, { selected: boolean; date: string }>>({});
+  // Multi-select classes (no date selection needed)
+  const [selectedClasses, setSelectedClasses] = useState<Record<string, boolean>>({});
   const [reason, setReason] = useState('');
   // Faculty selection
   const [facultyList, setFacultyList] = useState<AppUser[]>([]);
@@ -66,6 +66,7 @@ export default function StudentDashboard() {
 
   const loadRequests = async () => {
     try {
+      console.log(currentUser);
       const q = query(
         collection(db, 'attendanceRequests'),
         where('studentId', '==', currentUser?.uid),
@@ -110,26 +111,17 @@ export default function StudentDashboard() {
 
   const submitRequest = async () => {
     // Validate selections
-    const selectedIds = Object.keys(selectedClasses).filter(id => selectedClasses[id].selected);
+    const selectedIds = Object.keys(selectedClasses).filter(id => selectedClasses[id]);
     if (selectedIds.length === 0 || !reason.trim() || !selectedFacultyId) {
       setError('Select at least one class, choose a faculty, and enter a reason.');
       return;
     }
 
-    // Validate dates
-    for (const id of selectedIds) {
-      const date = selectedClasses[id].date;
-      if (!date) {
-        setError('Please select a date for each selected class.');
-        return;
-      }
-    }
-
-    // Duplicate check
+    // Duplicate check (using day instead of date)
     for (const id of selectedIds) {
       const entry = timetable.find(t => t.id === id);
-      if (entry && checkDuplicateRequest(entry, selectedClasses[id].date)) {
-        setError(`Duplicate request found for ${entry.subject} on ${selectedClasses[id].date}.`);
+      if (entry && checkDuplicateRequest(entry, entry.day)) {
+        setError(`Duplicate request found for ${entry.subject} on ${getDayName(entry.day)}.`);
         return;
       }
     }
@@ -143,7 +135,7 @@ export default function StudentDashboard() {
         const entry = timetable.find(t => t.id === id)!;
         return {
           subject: entry.subject,
-          date: selectedClasses[id].date,
+          date: entry.day, // Use day as date identifier
           time: entry.time,
           day: entry.day,
           timetableEntryId: entry.id,
@@ -271,8 +263,7 @@ export default function StudentDashboard() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Select Classes</label>
                 <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-md divide-y">
                   {timetable.map(entry => {
-                    const isSelected = !!selectedClasses[entry.id]?.selected;
-                    const dateVal = selectedClasses[entry.id]?.date || '';
+                    const isSelected = !!selectedClasses[entry.id];
                     return (
                       <div key={entry.id} className="p-3">
                         <label className="flex items-start space-x-3">
@@ -283,7 +274,7 @@ export default function StudentDashboard() {
                             onChange={(e) => {
                               setSelectedClasses(prev => ({
                                 ...prev,
-                                [entry.id]: { selected: e.target.checked, date: prev[entry.id]?.date || '' }
+                                [entry.id]: e.target.checked
                               }));
                             }}
                           />
@@ -296,18 +287,8 @@ export default function StudentDashboard() {
                               </div>
                             </div>
                             {isSelected && (
-                              <div className="mt-2">
-                                <label className="block text-xs text-gray-600 mb-1">Date of Absence</label>
-                                <input
-                                  type="date"
-                                  value={dateVal}
-                                  onChange={(e) => setSelectedClasses(prev => ({
-                                    ...prev,
-                                    [entry.id]: { selected: true, date: e.target.value }
-                                  }))}
-                                  max={new Date().toISOString().split('T')[0]}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
+                              <div className="mt-2 text-xs text-gray-600">
+                                <span className="font-medium">Day:</span> {getDayName(entry.day)} • <span className="font-medium">Time:</span> {entry.time}
                               </div>
                             )}
                           </div>
@@ -469,9 +450,9 @@ export default function StudentDashboard() {
                             <p className="font-medium">{cd.subject}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-500">Date & Time</p>
+                            <p className="text-sm text-gray-500">Day & Time</p>
                             <p className="font-medium">
-                              {cd.date ? new Date(cd.date).toLocaleDateString() : '-'}{cd.time ? ` - ${cd.time}` : ''}
+                              {cd.day ? getDayName(cd.day) : '-'}{cd.time ? ` - ${cd.time}` : ''}
                             </p>
                           </div>
                           <div>
