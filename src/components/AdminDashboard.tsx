@@ -14,6 +14,7 @@ export default function AdminDashboard() {
   const [timetables, setTimetables] = useState<TimeTableEntry[]>([]);
   const [requests, setRequests] = useState<AttendanceRequest[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [selectedRole,setSelectedRole]=useState('')
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState('');
@@ -613,6 +614,9 @@ export default function AdminDashboard() {
                       ))}
                     </select>
                   </div>
+
+               
+                  
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -680,7 +684,13 @@ export default function AdminDashboard() {
 
                 {showUserForm && (
                   <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> <input
+                        type="email"
+                        placeholder="Email"
+                        value={userData.email}
+                        onChange={(e) => setUserData({...userData, email: e.target.value})}
+                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
                       <input
                         type="email"
                         placeholder="Email"
@@ -767,9 +777,21 @@ export default function AdminDashboard() {
                 )}
 
                 <div className="overflow-x-auto">
+
+                <select
+                        value={selectedRole}
+                        onChange={(e) => setSelectedRole(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">All Roles</option>
+                        <option value="student">Student</option>
+                        <option value="faculty">Faculty</option>
+                        <option value="admin">Admin</option>
+                      </select>
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
@@ -778,8 +800,16 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {users.map(user => (
+                      {users.filter((e)=>{
+                        if(selectedRole==''){
+                          return true
+                        }
+                        else{
+                          return e.role==selectedRole?.toLowerCase()
+                        }
+                      }).map(user => (
                         <tr key={user.uid}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.facultyId?user.facultyId:user.prn}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.displayName}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
