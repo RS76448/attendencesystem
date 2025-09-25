@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, deleteDoc, query, orderBy,where } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { TimeTableEntry, AttendanceRequest, User, Course } from '../types';
-import { Upload, Users, Calendar, BookOpen, Plus, Trash2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, Users, Calendar, BookOpen, Plus, Trash2, AlertCircle, CheckCircle, FileText, Activity } from 'lucide-react';
 import Layout from './Layout';
+import TimetableManager from './TimetableManager';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'timetables' | 'users' | 'requests' | 'courses'>('timetables');
+  const [activeTab, setActiveTab] = useState<'timetables' | 'users' | 'requests' | 'courses' | 'logs'>('timetables');
+  const [timetableView, setTimetableView] = useState<'grid' | 'list'>('grid');
   const [timetables, setTimetables] = useState<TimeTableEntry[]>([]);
   const [requests, setRequests] = useState<AttendanceRequest[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -75,9 +77,15 @@ export default function AdminDashboard() {
   };
 
   const loadTimetables = async () => {
-    const q = query(collection(db, 'timetables'), orderBy('course'), orderBy('semester'));
+    // const q = query(collection(db, 'timetables'), orderBy('course'), orderBy('semester'));
+    const q = query(
+      collection(db, 'timetables'),
+      where('course', '==', timetableData.course),
+      where('semester', '==', timetableData.semester)
+    );
     const snapshot = await getDocs(q);
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TimeTableEntry[];
+    console.log(data)
     setTimetables(data);
   };
 
@@ -392,6 +400,7 @@ export default function AdminDashboard() {
                 { key: 'users', label: 'Users', icon: Users },
                 { key: 'courses', label: 'Courses', icon: BookOpen },
                 { key: 'requests', label: 'All Requests', icon: Upload },
+                { key: 'logs', label: 'Activity Logs', icon: Activity },
               ].map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -419,6 +428,28 @@ export default function AdminDashboard() {
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-medium text-gray-900">Timetable Management</h3>
                   <div className="flex items-center space-x-2">
+                    <div className="flex bg-gray-100 rounded-md">
+                      <button
+                        onClick={() => setTimetableView('grid')}
+                        className={`px-3 py-1 text-sm font-medium rounded-l-md transition-colors ${
+                          timetableView === 'grid' 
+                            ? 'bg-blue-600 text-white' 
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Grid View
+                      </button>
+                      <button
+                        onClick={() => setTimetableView('list')}
+                        className={`px-3 py-1 text-sm font-medium rounded-r-md transition-colors ${
+                          timetableView === 'list' 
+                            ? 'bg-blue-600 text-white' 
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        List View
+                      </button>
+                    </div>
                     <label className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors flex items-center space-x-2 cursor-pointer">
                       <Upload className="w-4 h-4" />
                       <span>{csvParsing ? 'Uploading...' : 'Upload CSV'}</span>
@@ -444,7 +475,19 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {showTimetableForm && (
+                {/* Grid View - New Timetable Manager */}
+                {timetableView === 'grid' && (
+                  <TimetableManager 
+                    courses={courses}
+                    users={users}
+                    onTimetableUpdate={loadTimetables}
+                  />
+                )}
+
+                {/* List View - Original Table */}
+                {timetableView === 'list' && (
+                  <>
+                    {showTimetableForm && (
                   <div className="bg-gray-50 rounded-lg p-4 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <select
@@ -616,6 +659,8 @@ export default function AdminDashboard() {
                     </tbody>
                   </table>
                 </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -967,6 +1012,186 @@ export default function AdminDashboard() {
                     </table>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Activity Logs Tab */}
+            {activeTab === 'logs' && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">System Activity Logs</h3>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Timetable Activity */}
+                  <div className="bg-white rounded-lg shadow">
+                    <div className="p-6 border-b">
+                      <h4 className="text-md font-medium text-gray-900 flex items-center">
+                        <Calendar className="w-5 h-5 mr-2" />
+                        Timetable Activity
+                      </h4>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Total Timetable Entries</span>
+                          <span className="text-lg font-semibold text-gray-900">{timetables.length}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Active Courses</span>
+                          <span className="text-lg font-semibold text-gray-900">
+                            {Array.from(new Set(timetables.map(t => t.course))).length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Active Semesters</span>
+                          <span className="text-lg font-semibold text-gray-900">
+                            {Array.from(new Set(timetables.map(t => t.semester))).length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Faculty Involved</span>
+                          <span className="text-lg font-semibold text-gray-900">
+                            {Array.from(new Set(timetables.map(t => t.facultyName))).length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Request Activity */}
+                  <div className="bg-white rounded-lg shadow">
+                    <div className="p-6 border-b">
+                      <h4 className="text-md font-medium text-gray-900 flex items-center">
+                        <Upload className="w-5 h-5 mr-2" />
+                        Request Activity
+                      </h4>
+                    </div>
+                    <div className="p-6">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Total Requests</span>
+                          <span className="text-lg font-semibold text-gray-900">{requests.length}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Pending Requests</span>
+                          <span className="text-lg font-semibold text-yellow-600">
+                            {requests.filter(r => r.status === 'pending').length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Approved Requests</span>
+                          <span className="text-lg font-semibold text-green-600">
+                            {requests.filter(r => r.status === 'approved').length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Rejected Requests</span>
+                          <span className="text-lg font-semibold text-red-600">
+                            {requests.filter(r => r.status === 'rejected').length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="bg-white rounded-lg shadow">
+                  <div className="p-6 border-b">
+                    <h4 className="text-md font-medium text-gray-900 flex items-center">
+                      <Activity className="w-5 h-5 mr-2" />
+                      Recent Activity
+                    </h4>
+                  </div>
+                  <div className="divide-y divide-gray-200">
+                    {requests.length === 0 ? (
+                      <div className="p-6 text-center text-gray-500">
+                        <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                        <p>No recent activity</p>
+                      </div>
+                    ) : (
+                      requests
+                        .sort((a, b) => (b.submittedAt?.getTime() || 0) - (a.submittedAt?.getTime() || 0))
+                        .slice(0, 10)
+                        .map(request => (
+                        <div key={request.id} className="p-6">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-3 h-3 rounded-full ${
+                                request.status === 'approved' ? 'bg-green-500' :
+                                request.status === 'rejected' ? 'bg-red-500' :
+                                'bg-yellow-500'
+                              }`}></div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {request.studentName} submitted absence request
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {request.course} - Semester {request.semester} • 
+                                  {Array.isArray((request as any).classDetails)
+                                    ? (request as any).classDetails.length
+                                    : 1} class(es)
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                request.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {request.status}
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {request.submittedAt?.toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* System Statistics */}
+                <div className="bg-white rounded-lg shadow">
+                  <div className="p-6 border-b">
+                    <h4 className="text-md font-medium text-gray-900 flex items-center">
+                      <FileText className="w-5 h-5 mr-2" />
+                      System Statistics
+                    </h4>
+                  </div>
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-blue-600">{users.length}</div>
+                        <div className="text-sm text-gray-500">Total Users</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {users.filter(u => u.role === 'student').length} Students, {' '}
+                          {users.filter(u => u.role === 'faculty').length} Faculty, {' '}
+                          {users.filter(u => u.role === 'admin').length} Admins
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-green-600">{courses.length}</div>
+                        <div className="text-sm text-gray-500">Total Courses</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {courses.reduce((acc, course) => acc + course.semesters.length, 0)} Total Semesters
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold text-purple-600">
+                          {requests.length > 0 
+                            ? Math.round((requests.filter(r => r.status === 'approved').length / requests.length) * 100)
+                            : 0}%
+                        </div>
+                        <div className="text-sm text-gray-500">Approval Rate</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {requests.filter(r => r.status === 'approved').length} of {requests.length} requests
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

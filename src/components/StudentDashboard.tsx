@@ -1,32 +1,25 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { TimeTableEntry, AttendanceRequest, User as AppUser } from '../types';
-import { Calendar, Clock, Book, User, AlertCircle, CheckCircle, XCircle, Plus } from 'lucide-react';
+import { TimeTableEntry, AttendanceRequest } from '../types';
+import { Calendar, Clock, AlertCircle, CheckCircle, XCircle, Plus } from 'lucide-react';
 import Layout from './Layout';
+import StudentRequestForm from './StudentRequestForm';
+import WeeklyTimetableView from './WeeklyTimetableView';
 
 export default function StudentDashboard() {
   const { currentUser } = useAuth();
   const [timetable, setTimetable] = useState<TimeTableEntry[]>([]);
   const [requests, setRequests] = useState<AttendanceRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
-  // Multi-select classes (no date selection needed)
-  const [selectedClasses, setSelectedClasses] = useState<Record<string, boolean>>({});
-  const [reason, setReason] = useState('');
-  // Faculty selection
-  const [facultyList, setFacultyList] = useState<AppUser[]>([]);
-  const [selectedFacultyId, setSelectedFacultyId] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     if (currentUser) {
       loadTimetable();
       loadRequests();
-      loadFaculty();
     }
   }, [currentUser]);
 
@@ -87,91 +80,6 @@ export default function StudentDashboard() {
     }
   };
 
-  const loadFaculty = async () => {
-    try {
-      const q = query(collection(db, 'users'), where('role', '==', 'faculty'));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(d => ({ uid: d.id, ...(d.data() as any) })) as AppUser[];
-      setFacultyList(data);
-    } catch (e) {
-      console.error('Error loading faculty:', e);
-    }
-  };
-
-  const checkDuplicateRequest = (classEntry: TimeTableEntry, date: string) => {
-    return requests.some(request => {
-      const details = Array.isArray((request as any).classDetails)
-        ? (request as any).classDetails
-        : [(request as any).classDetails];
-      return details.some((d: any) =>
-        d?.subject === classEntry.subject && d?.date === date && d?.time === classEntry.time && request.status !== 'rejected'
-      );
-    });
-  };
-
-  const submitRequest = async () => {
-    // Validate selections
-    const selectedIds = Object.keys(selectedClasses).filter(id => selectedClasses[id]);
-    if (selectedIds.length === 0 || !reason.trim() || !selectedFacultyId) {
-      setError('Select at least one class, choose a faculty, and enter a reason.');
-      return;
-    }
-
-    // Duplicate check (using day instead of date)
-    for (const id of selectedIds) {
-      const entry = timetable.find(t => t.id === id);
-      if (entry && checkDuplicateRequest(entry, entry.day)) {
-        setError(`Duplicate request found for ${entry.subject} on ${getDayName(entry.day)}.`);
-        return;
-      }
-    }
-
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const faculty = facultyList.find(f => (f.facultyId || f.uid) === selectedFacultyId || f.uid === selectedFacultyId);
-      const classDetails = selectedIds.map(id => {
-        const entry = timetable.find(t => t.id === id)!;
-        return {
-          subject: entry.subject,
-          date: entry.day, // Use day as date identifier
-          time: entry.time,
-          day: entry.day,
-          timetableEntryId: entry.id,
-        };
-      });
-
-      const requestData: Omit<AttendanceRequest, 'id'> = {
-        studentId: currentUser!.uid,
-        studentName: currentUser!.displayName,
-        prn: currentUser!.prn || '',
-        course: currentUser!.course || '',
-        semester: currentUser!.semester || '',
-        facultyId: faculty?.facultyId || faculty?.uid || selectedFacultyId,
-        facultyName: faculty?.displayName || 'Selected Faculty',
-        classDetails,
-        reason: reason.trim(),
-        status: 'pending',
-        submittedAt: new Date(),
-      } as any;
-
-      await addDoc(collection(db, 'attendanceRequests'), requestData);
-      setSuccess('Request submitted successfully!');
-      setShowRequestForm(false);
-      setSelectedClasses({});
-      setReason('');
-      setSelectedFacultyId('');
-      loadRequests();
-      
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (error) {
-      console.error('Error submitting request:', error);
-      setError('Failed to submit request. Please try again.');
-    }
-    
-    setSubmitting(false);
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -213,14 +121,6 @@ export default function StudentDashboard() {
   return (
     <Layout title="Student Dashboard">
       <div className="space-y-8">
-        {success && (
-          <div className="bg-green-50 border border-green-200 rounded-md p-4">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <p className="text-sm text-green-700">{success}</p>
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -256,95 +156,10 @@ export default function StudentDashboard() {
 
         {/* Request Form */}
         {showRequestForm && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Submit Attendance Request</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Classes</label>
-                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-md divide-y">
-                  {timetable.map(entry => {
-                    const isSelected = !!selectedClasses[entry.id];
-                    return (
-                      <div key={entry.id} className="p-3">
-                        <label className="flex items-start space-x-3">
-                          <input
-                            type="checkbox"
-                            className="mt-1"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              setSelectedClasses(prev => ({
-                                ...prev,
-                                [entry.id]: e.target.checked
-                              }));
-                            }}
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <div className="text-sm">
-                                <span className="font-medium">{entry.subject}</span>
-                                <span className="text-gray-500"> • {getDayName(entry.day)} {entry.time}</span>
-                                <span className="text-gray-500"> • {entry.facultyName}</span>
-                              </div>
-                            </div>
-                            {isSelected && (
-                              <div className="mt-2 text-xs text-gray-600">
-                                <span className="font-medium">Day:</span> {getDayName(entry.day)} • <span className="font-medium">Time:</span> {entry.time}
-                              </div>
-                            )}
-                          </div>
-                        </label>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Faculty/Approver</label>
-                <select
-                  value={selectedFacultyId}
-                  onChange={(e) => setSelectedFacultyId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Choose a faculty</option>
-                  {facultyList.map(f => (
-                    <option key={f.uid} value={f.facultyId || f.uid}>
-                      {f.displayName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reason for Absence
-                </label>
-                <textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  rows={3}
-                  placeholder="Please provide a detailed reason for your absence..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex space-x-3">
-                <button
-                  onClick={submitRequest}
-                  disabled={submitting}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
-                >
-                  {submitting ? 'Submitting...' : 'Submit Request'}
-                </button>
-                <button
-                  onClick={() => setShowRequestForm(false)}
-                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
+          <StudentRequestForm onRequestSubmitted={() => {
+            setShowRequestForm(false);
+            loadRequests();
+          }} />
         )}
 
         {/* Action Button */}
@@ -362,56 +177,17 @@ export default function StudentDashboard() {
 
         {/* Timetable */}
         {timetable.length > 0 && (
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b">
-              <h2 className="text-lg font-semibold text-gray-900">Your Timetable</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Day</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Faculty</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {timetable.map(entry => (
-                    <tr key={entry.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {getDayName(entry.day)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{entry.time}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center space-x-1">
-                          <Book className="w-4 h-4" />
-                          <span>{entry.subject}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center space-x-1">
-                          <User className="w-4 h-4" />
-                          <span>{entry.facultyName}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <WeeklyTimetableView timetable={timetable} />
         )}
 
         {/* My Requests */}
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">My Requests</h2>
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <Calendar className="w-5 h-5 mr-2" />
+              My Absence Requests
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">Track your attendance requests and their status</p>
           </div>
           {requests.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
@@ -422,7 +198,7 @@ export default function StudentDashboard() {
             <div className="divide-y divide-gray-200">
               {requests.map(request => (
                 <div key={request.id} className="p-6">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <div className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(request.status)}`}>
                         <div className="flex items-center space-x-1">
@@ -430,50 +206,55 @@ export default function StudentDashboard() {
                           <span className="capitalize">{request.status}</span>
                         </div>
                       </div>
-                      <span className="text-sm text-gray-500">
-                        Submitted {request.submittedAt?.toLocaleDateString()}
-                      </span>
+                      <div className="text-sm text-gray-500">
+                        <div>Submitted: {request.submittedAt?.toLocaleDateString()}</div>
+                        {request.processedAt && (
+                          <div>Processed: {request.processedAt.toLocaleDateString()}</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="mb-3">
-                    <p className="text-sm text-gray-500 mb-1">Classes</p>
-                    <div className="bg-gray-50 rounded-md divide-y">
+                  <div className="mb-4">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Absence Details</p>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                       {(
                         Array.isArray((request as any).classDetails)
                           ? (request as any).classDetails
                           : [(request as any).classDetails]
                       ).map((cd: any, idx: number) => (
-                        <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-3">
-                          <div>
-                            <p className="text-sm text-gray-500">Subject</p>
-                            <p className="font-medium">{cd.subject}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Day & Time</p>
-                            <p className="font-medium">
-                              {cd.day ? getDayName(cd.day) : '-'}{cd.time ? ` - ${cd.time}` : ''}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-500">Faculty</p>
-                            <p className="font-medium">{request.facultyName}</p>
+                        <div key={idx} className="bg-white rounded-md p-3 border border-gray-200">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase tracking-wide">Subject</p>
+                              <p className="font-medium text-gray-900">{cd.subject}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase tracking-wide">Date of Absence</p>
+                              <p className="font-medium text-gray-900">
+                                {cd.date ? new Date(cd.date).toLocaleDateString() : 
+                                 cd.dayName ? cd.dayName : 
+                                 cd.day ? getDayName(cd.day) : '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase tracking-wide">Time</p>
+                              <p className="font-medium text-gray-900">{cd.time || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase tracking-wide">Faculty</p>
+                              <p className="font-medium text-gray-900">{request.facultyName}</p>
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
                   
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Reason</p>
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <p className="text-sm font-medium text-gray-700 mb-1">Reason for Absence</p>
                     <p className="text-gray-800">{request.reason}</p>
                   </div>
-                  
-                  {request.processedAt && (
-                    <div className="mt-2 text-sm text-gray-500">
-                      Processed on {request.processedAt.toLocaleDateString()}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
