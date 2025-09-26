@@ -321,7 +321,7 @@ export default function TimetableManager({ courses, users, onTimetableUpdate }: 
           </div>
 
           <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {weekDates.map(weekDate => {
                 const dayOfWeek = weekDate.dayOfWeek.toString();
                 const dayEntries = timetable[dayOfWeek] || {};
@@ -338,30 +338,30 @@ export default function TimetableManager({ courses, users, onTimetableUpdate }: 
                         : 'border-gray-200 bg-white hover:bg-gray-50'
                     } transition-all duration-200`}
                   >
-                    {/* Day Header */}
-                    <div className={`p-5 rounded-t-lg ${
-                      weekDate.isToday 
-                        ? 'bg-blue-600 text-white' 
-                        : weekDate.isPast 
-                        ? 'bg-gray-400 text-white' 
-                        : 'bg-gray-600 text-white'
-                    }`}>
-                      <div className="text-center">
-                        <div className="text-xl font-semibold">{weekDate.dayName}</div>
-                        <div className="text-sm opacity-90 mt-1">
-                          {weekDate.date.toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric' 
-                          })}
-                        </div>
-                        {weekDate.isToday && (
-                          <div className="text-xs mt-2 opacity-75 bg-white bg-opacity-20 rounded-full px-2 py-1 inline-block">Today</div>
-                        )}
-                      </div>
+                {/* Day Header */}
+                <div className={`p-4 sm:p-5 rounded-t-lg ${
+                  weekDate.isToday
+                    ? 'bg-blue-600 text-white'
+                    : weekDate.isPast
+                    ? 'bg-gray-400 text-white'
+                    : 'bg-gray-600 text-white'
+                }`}>
+                  <div className="text-center">
+                    <div className="text-lg sm:text-xl font-semibold">{weekDate.dayName}</div>
+                    <div className="text-xs sm:text-sm opacity-90 mt-1">
+                      {weekDate.date.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                      })}
                     </div>
+                    {weekDate.isToday && (
+                      <div className="text-xs mt-2 opacity-75 bg-white bg-opacity-20 rounded-full px-2 py-1 inline-block">Today</div>
+                    )}
+                  </div>
+                </div>
 
                     {/* Classes */}
-                    <div className="p-5 min-h-[200px]">
+                    <div className="p-4 sm:p-5 min-h-[180px] sm:min-h-[200px]">
                       {sortedEntries.length === 0 ? (
                         <div className="text-center text-gray-500 py-12">
                           <Calendar className="w-10 h-10 mx-auto mb-3 opacity-50" />
@@ -415,18 +415,18 @@ export default function TimetableManager({ courses, users, onTimetableUpdate }: 
                       )}
                     </div>
 
-                    {/* Add Entry Button */}
-                    {!weekDate.isPast && (
-                      <div className="p-5 border-t border-gray-200 bg-gray-50">
-                        <button
-                          onClick={() => openAddEntryModal(dayOfWeek, weekDate.dayName)}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 shadow-sm hover:shadow-md"
-                        >
-                          <Plus className="w-5 h-5" />
-                          <span>Add Class</span>
-                        </button>
-                      </div>
-                    )}
+                {/* Add Entry Button */}
+                {!weekDate.isPast && (
+                  <div className="p-4 sm:p-5 border-t border-gray-200 bg-gray-50">
+                    <button
+                      onClick={() => openAddEntryModal(dayOfWeek, weekDate.dayName)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 sm:py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 shadow-sm hover:shadow-md text-sm sm:text-base"
+                    >
+                      <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>Add Class</span>
+                    </button>
+                  </div>
+                )}
                   </div>
                 );
               })}

@@ -55,7 +55,7 @@ export default function WeeklyTimetableView({ timetable }: WeeklyTimetableViewPr
       </div>
       
       <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {weekDates.map(weekDate => {
             const dayOfWeek = weekDate.dayOfWeek.toString();
             const classes = dayClasses[dayOfWeek] || [];
@@ -66,10 +66,10 @@ export default function WeeklyTimetableView({ timetable }: WeeklyTimetableViewPr
                 className={`rounded-lg border-2 ${getDayColor(weekDate)} transition-all duration-200`}
               >
                 {/* Day Header */}
-                <div className={`p-5 rounded-t-lg ${getDayHeaderColor(weekDate)}`}>
+                <div className={`p-4 sm:p-5 rounded-t-lg ${getDayHeaderColor(weekDate)}`}>
                   <div className="text-center">
-                    <div className="text-xl font-semibold">{weekDate.dayName}</div>
-                    <div className="text-sm opacity-90 mt-1">
+                    <div className="text-lg sm:text-xl font-semibold">{weekDate.dayName}</div>
+                    <div className="text-xs sm:text-sm opacity-90 mt-1">
                       {weekDate.date.toLocaleDateString('en-US', { 
                         month: 'short', 
                         day: 'numeric' 
@@ -82,7 +82,7 @@ export default function WeeklyTimetableView({ timetable }: WeeklyTimetableViewPr
                 </div>
 
                 {/* Classes */}
-                <div className="p-5 min-h-[200px]">
+                <div className="p-4 sm:p-5 min-h-[180px] sm:min-h-[200px]">
                   {classes.length === 0 ? (
                     <div className="text-center text-gray-500 py-12">
                       <Calendar className="w-10 h-10 mx-auto mb-3 opacity-50" />

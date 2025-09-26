@@ -316,44 +316,44 @@ export default function FacultyDashboard() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Requests</p>
-                <p className="text-3xl font-bold text-gray-900">{requests.length}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Total Requests</p>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900">{requests.length}</p>
               </div>
-              <Calendar className="w-8 h-8 text-gray-400" />
+              <Calendar className="w-5 h-5 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-3xl font-bold text-yellow-600">{pendingCount}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-xl sm:text-3xl font-bold text-yellow-600">{pendingCount}</p>
               </div>
-              <Clock className="w-8 h-8 text-yellow-400" />
+              <Clock className="w-5 h-5 sm:w-8 sm:h-8 text-yellow-400 flex-shrink-0" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Approved</p>
-                <p className="text-3xl font-bold text-green-600">{approvedCount}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Approved</p>
+                <p className="text-xl sm:text-3xl font-bold text-green-600">{approvedCount}</p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-400" />
+              <CheckCircle className="w-5 h-5 sm:w-8 sm:h-8 text-green-400 flex-shrink-0" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-3xl font-bold text-red-600">{rejectedCount}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Rejected</p>
+                <p className="text-xl sm:text-3xl font-bold text-red-600">{rejectedCount}</p>
               </div>
-              <XCircle className="w-8 h-8 text-red-400" />
+              <XCircle className="w-5 h-5 sm:w-8 sm:h-8 text-red-400 flex-shrink-0" />
             </div>
           </div>
         </div>
@@ -361,31 +361,33 @@ export default function FacultyDashboard() {
         {/* Tab Navigation */}
         <div className="bg-white rounded-lg shadow">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 px-6">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8 px-3 sm:px-6">
               <button
                 onClick={() => setActiveTab('requests')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm ${
                   activeTab === 'requests'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4" />
-                  <span>Attendance Requests</span>
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Attendance Requests</span>
+                  <span className="sm:hidden">Requests</span>
                 </div>
               </button>
               <button
                 onClick={() => setActiveTab('timetable')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm ${
                   activeTab === 'timetable'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <div className="flex items-center space-x-2">
-                  <BookOpen className="w-4 h-4" />
-                  <span>My Timetable</span>
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <BookOpen className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">My Timetable</span>
+                  <span className="sm:hidden">Timetable</span>
                 </div>
               </button>
             </nav>

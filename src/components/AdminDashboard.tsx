@@ -338,56 +338,56 @@ export default function AdminDashboard() {
         )}
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-600">Total Users</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalUsers}</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalUsers}</p>
+                <p className="text-xs sm:text-sm text-gray-500 truncate">
                   {stats.students} Students, {stats.faculty} Faculty, {stats.admins} Admins
                 </p>
               </div>
-              <Users className="w-8 h-8 text-gray-400" />
+              <Users className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-600">Total Requests</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalRequests}</p>
-                <p className="text-sm text-gray-500">{stats.pendingRequests} Pending</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalRequests}</p>
+                <p className="text-xs sm:text-sm text-gray-500">{stats.pendingRequests} Pending</p>
               </div>
-              <Calendar className="w-8 h-8 text-gray-400" />
+              <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-600">Timetable Entries</p>
-                <p className="text-3xl font-bold text-gray-900">{timetables.length}</p>
-                <p className="text-sm text-gray-500">{courses.length} Courses</p>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900">{timetables.length}</p>
+                <p className="text-xs sm:text-sm text-gray-500">{courses.length} Courses</p>
               </div>
-              <BookOpen className="w-8 h-8 text-gray-400" />
+              <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 flex-shrink-0" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-gray-600">Approval Rate</p>
-                <p className="text-3xl font-bold text-green-600">
+                <p className="text-2xl sm:text-3xl font-bold text-green-600">
                   {stats.totalRequests > 0 
                     ? Math.round((stats.approvedRequests / (stats.approvedRequests + stats.rejectedRequests)) * 100)
                     : 0}%
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs sm:text-sm text-gray-500">
                   {stats.approvedRequests} / {stats.approvedRequests + stats.rejectedRequests}
                 </p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-400" />
+              <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-400 flex-shrink-0" />
             </div>
           </div>
         </div>
@@ -395,7 +395,7 @@ export default function AdminDashboard() {
         {/* Tab Navigation */}
         <div className="bg-white rounded-lg shadow">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6" aria-label="Tabs">
+            <nav className="flex overflow-x-auto space-x-2 sm:space-x-8 px-3 sm:px-6" aria-label="Tabs">
               {[
                 { key: 'timetables', label: 'Timetables', icon: Calendar },
                 { key: 'users', label: 'Users', icon: Users },
@@ -412,10 +412,11 @@ export default function AdminDashboard() {
                       activeTab === tab.key
                         ? 'border-blue-500 text-blue-600'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center space-x-2`}
+                    } whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors flex items-center space-x-1 sm:space-x-2 flex-shrink-0`}
                   >
-                    <Icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
+                    <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                   </button>
                 );
               })}

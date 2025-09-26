@@ -289,7 +289,7 @@ export default function StudentRequestForm({ onRequestSubmitted }: StudentReques
             Select Classes ({getSelectedCount()} selected)
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {weekDates.map(weekDate => {
               const dayOfWeek = weekDate.dayOfWeek.toString();
               const dayEntries = timetable[dayOfWeek] || {};
@@ -306,30 +306,30 @@ export default function StudentRequestForm({ onRequestSubmitted }: StudentReques
                       : 'border-gray-200 bg-white hover:bg-gray-50'
                   } transition-all duration-200`}
                 >
-                  {/* Day Header */}
-                  <div className={`p-4 rounded-t-lg ${
-                    weekDate.isToday 
-                      ? 'bg-blue-600 text-white' 
-                      : weekDate.isPast 
-                      ? 'bg-gray-400 text-white' 
-                      : 'bg-gray-600 text-white'
-                  }`}>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold">{weekDate.dayName}</div>
-                      <div className="text-sm opacity-90 mt-1">
-                        {weekDate.date.toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric' 
-                        })}
-                      </div>
-                      {weekDate.isToday && (
-                        <div className="text-xs mt-2 opacity-75 bg-white bg-opacity-20 rounded-full px-2 py-1 inline-block">Today</div>
-                      )}
+                {/* Day Header */}
+                <div className={`p-3 sm:p-4 rounded-t-lg ${
+                  weekDate.isToday
+                    ? 'bg-blue-600 text-white'
+                    : weekDate.isPast
+                    ? 'bg-gray-400 text-white'
+                    : 'bg-gray-600 text-white'
+                }`}>
+                  <div className="text-center">
+                    <div className="text-base sm:text-lg font-semibold">{weekDate.dayName}</div>
+                    <div className="text-xs sm:text-sm opacity-90 mt-1">
+                      {weekDate.date.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                      })}
                     </div>
+                    {weekDate.isToday && (
+                      <div className="text-xs mt-2 opacity-75 bg-white bg-opacity-20 rounded-full px-2 py-1 inline-block">Today</div>
+                    )}
                   </div>
+                </div>
 
                   {/* Classes */}
-                  <div className="p-4 min-h-[150px]">
+                  <div className="p-3 sm:p-4 min-h-[130px] sm:min-h-[150px]">
                     {sortedEntries.length === 0 ? (
                       <div className="text-center text-gray-500 py-8">
                         <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -337,60 +337,60 @@ export default function StudentRequestForm({ onRequestSubmitted }: StudentReques
                         <p className="text-xs text-gray-400 mt-1">No classes scheduled</p>
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        {sortedEntries.map((entry, index) => {
-                          const slotKey = `${dayOfWeek}|${entry.time}`;
-                          const isSelected = !!selectedSlots[slotKey];
-                          const isDisabled = isSlotDisabled(dayOfWeek, entry.time, entry);
-                          
-                          return (
-                            <button
-                              key={`${entry.time}-${index}`}
-                              onClick={() => toggleSlotSelection(dayOfWeek, entry.time, entry)}
-                              disabled={isDisabled}
-                              className={`w-full p-3 rounded-lg border text-left transition-all ${
-                                isSelected 
-                                  ? 'border-blue-500 bg-blue-100 text-blue-900' 
-                                  : isDisabled
-                                  ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
-                                  : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
-                              }`}
-                            >
-                              <div className="space-y-2">
-                                {/* Time */}
-                                <div className="flex items-center space-x-2">
-                                  <Clock className="w-4 h-4 text-blue-600" />
-                                  <span className="font-semibold text-sm">
-                                    {formatTimeSlot(entry.time)}
-                                  </span>
-                                </div>
+                        <div className="space-y-2 sm:space-y-3">
+                          {sortedEntries.map((entry, index) => {
+                            const slotKey = `${dayOfWeek}|${entry.time}`;
+                            const isSelected = !!selectedSlots[slotKey];
+                            const isDisabled = isSlotDisabled(dayOfWeek, entry.time, entry);
 
-                                {/* Subject */}
-                                <div className="flex items-center space-x-2">
-                                  <Book className="w-4 h-4 text-blue-600" />
-                                  <span className="text-sm font-medium">
-                                    {entry.subject}
-                                  </span>
-                                </div>
-
-                                {/* Faculty */}
-                                <div className="flex items-center space-x-2">
-                                  <User className="w-4 h-4 text-blue-600" />
-                                  <span className="text-sm text-gray-600 truncate">
-                                    {entry.facultyName}
-                                  </span>
-                                </div>
-
-                                {isSelected && (
-                                  <div className="text-xs text-blue-600 font-medium text-center">
-                                    ✓ Selected
+                            return (
+                              <button
+                                key={`${entry.time}-${index}`}
+                                onClick={() => toggleSlotSelection(dayOfWeek, entry.time, entry)}
+                                disabled={isDisabled}
+                                className={`w-full p-2 sm:p-3 rounded-lg border text-left transition-all ${
+                                  isSelected
+                                    ? 'border-blue-500 bg-blue-100 text-blue-900'
+                                    : isDisabled
+                                    ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
+                                }`}
+                              >
+                                <div className="space-y-1 sm:space-y-2">
+                                  {/* Time */}
+                                  <div className="flex items-center space-x-1 sm:space-x-2">
+                                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
+                                    <span className="font-semibold text-xs sm:text-sm">
+                                      {formatTimeSlot(entry.time)}
+                                    </span>
                                   </div>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
+
+                                  {/* Subject */}
+                                  <div className="flex items-center space-x-1 sm:space-x-2">
+                                    <Book className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
+                                    <span className="text-xs sm:text-sm font-medium truncate">
+                                      {entry.subject}
+                                    </span>
+                                  </div>
+
+                                  {/* Faculty */}
+                                  <div className="flex items-center space-x-1 sm:space-x-2">
+                                    <User className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
+                                    <span className="text-xs sm:text-sm text-gray-600 truncate">
+                                      {entry.facultyName}
+                                    </span>
+                                  </div>
+
+                                  {isSelected && (
+                                    <div className="text-xs text-blue-600 font-medium text-center">
+                                      ✓ Selected
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
                     )}
                   </div>
                 </div>
